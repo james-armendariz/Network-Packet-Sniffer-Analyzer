@@ -7,6 +7,10 @@ NIC/Kernel
     |
     v
 capture.py
-(Producer Thread) --- bounded queue-------> pipeline.py
-                (drop oldest when full)    (consumer thread)
+(Producer Thread) ------- bounded queue-------> pipeline.py
+                    (drop oldest when full)   (consumer thread)
+                                                    |
+                                                    v
+                                                engine.py
+                                              (runs Detectors)
 
