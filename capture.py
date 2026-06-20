@@ -32,7 +32,7 @@ class PacketCapture:
 
     # Start the packet capture thread.
     def start(self) -> None:
-        self._sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.nthos(ETH_P_ALL))
+        self._sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(ETH_P_ALL))
         self._sock.bind((self.iface, 0))
         self._sock.settimeout(RECV_TIMEOUT)
 
