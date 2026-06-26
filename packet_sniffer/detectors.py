@@ -1,12 +1,22 @@
+"""Threat detectors for identifying suspicious packet patterns."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-"""
-Represents an alert for a detected threat.
-"""
+from packet_sniffer.parser import (
+    PacketInfo,
+    TCP_FLAG_FIN,
+    TCP_FLAG_PSH,
+    TCP_FLAG_SYN,
+    TCP_FLAG_URG,
+)
+
+
 @dataclass
 class Alert:
+    """Structured record describing a security-relevant observation."""
+
     severity: str
     category: str
     message: str
@@ -14,32 +24,34 @@ class Alert:
     dst_ip: Optional[str] = None
     dst_port: Optional[int] = None
 
-"""
-Common interface for all detectors.
-"""
+
 class Detector(ABC):
+    """Base class for all packet inspection logic."""
+
     name: str = "unamed_detector"
 
-    # Inspect a network packet and return an alert if a potential 
-    #threat is detected.
     @abstractmethod
     def inspect(self, packet: PacketInfo) -> Optional[Alert]:
+        """Return an alert when the packet matches a known suspicious pattern."""
         raise NotImplementedError
 
-"""
-Flags TCP packets with flag combinations that essentially never
-occur in ligitimate traffic but are characteristic of well-known
-stealth scanning techniques:
-    - NULL scan (no TCP flags set)-
-    - FIN scan (lone FIN flag)-
-    - XMAS scan (FIN+PSH+URG)-
-    - Contradictory SYN+FIN flags
-"""
+
 class StealthScanDetector(Detector):
+    """Flag TCP packets matching classic stealth-scanning signatures.
+
+    Certain flag combinations are rarely seen in normal traffic but are common
+    in reconnaissance activity. The detector focuses on NULL, FIN, XMAS, and
+    contradictory SYN/FIN scans because those are highly indicative of probing.
+    """
+
     name = "stealth_scan"
 
-    # Inspect a network packet for stealth scan attempts.
     def inspect(self, packet: PacketInfo) -> Optional[Alert]:
+        """Inspect a packet and raise an alert for suspicious TCP flags.
+
+        These signatures are not absolute proof of an attack, but they are strong
+        heuristic indicators when observed on network ingress or internal scans.
+        """
         if packet.tcp is None or packet.ip is None:
             return None
 
@@ -60,14 +72,16 @@ class StealthScanDetector(Detector):
 
         return None
 
-    # Create an alert for the detected threat.
     def _alert(self, packet: PacketInfo, reason: str, flag_str: str) -> Alert:
+        """Create a standardized alert payload for a detection event."""
         return Alert(
-            severity = "medium",
-            category = self.name,
-            message = f"{reason} from {packet.ip.src_ip} -> "
-                      f"{packet.ip.dst_ip}:{packet.tcp.dst_port} {flags={flag_str}}",
-            src_ip = packet.ip.src_ip,
-            dst_ip = packet.ip.dst_ip,
-            dst_port = packet.tcp.dst_port
+            severity="medium",
+            category=self.name,
+            message=(
+                f"{reason} from {packet.ip.src_ip} -> {packet.ip.dst_ip}:"
+                f"{packet.tcp.dst_port} flags={flag_str}"
+            ),
+            src_ip=packet.ip.src_ip,
+            dst_ip=packet.ip.dst_ip,
+            dst_port=packet.tcp.dst_port,
         )

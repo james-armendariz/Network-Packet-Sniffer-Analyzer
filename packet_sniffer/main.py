@@ -1,3 +1,5 @@
+"""Command-line entry point for the lightweight packet sniffer."""
+
 import argparse
 import sys
 import time
@@ -7,22 +9,20 @@ from packet_sniffer.engine import AnalysisEngine
 from packet_sniffer.detectors import StealthScanDetector
 from packet_sniffer.alerts import AlertPublisher, ConsoleAlerter
 
-# Build the analysis pipeline
+
 def build_pipeline(iface: str, queue_size: int) -> Pipeline:
-    # Initialize the alert publisher and subscribe the console alerter
+    """Construct the capture, parse, and analysis pipeline for a given interface."""
     publisher = AlertPublisher()
     publisher.subscribe(ConsoleAlerter())
 
-    # Initialize the detectors
     detectors = [StealthScanDetector()]
-    # Initialize the analysis engine
     engine = AnalysisEngine(detectors=detectors, publisher=publisher)
-    # Initialize the pipeline
     return Pipeline(iface=iface, engine=engine, queue_size=queue_size)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Lightweight packet sniffer & anamoly analyzer")
+def main() -> None:
+    """Parse CLI arguments and run the sniffer until interrupted or timed out."""
+    parser = argparse.ArgumentParser(description="Lightweight packet sniffer and anomaly analyzer")
     parser.add_argument("--iface", default="lo", help="Network interface to capture on (default: lo)")
     parser.add_argument("--queue-size", type=int, default=1000, help="Max queued packets before drop-oldest kicks in")
     parser.add_argument("--duration", type=float, default=None, help="Stop after N seconds (default: run until Ctrl+C)")
@@ -52,6 +52,6 @@ def main():
         for k, v in stats.items():
             print(f"  {k}: {v}", file=sys.stderr)
 
-# Entry point
+
 if __name__ == "__main__":
     main()
