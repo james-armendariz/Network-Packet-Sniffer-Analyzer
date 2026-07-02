@@ -15,6 +15,8 @@ from typing import Optional
 
 # Ethernet Frame Types (IEEE 802.3)
 ETH_TYPE_IPv4 = 0x0800
+# Backwards-compatible alias: some tests / callers use the all-caps 'IPV4'
+ETH_TYPE_IPV4 = ETH_TYPE_IPv4
 
 # IP Protocol Numbers (RFC 1700)
 IP_PROTO_TCP = 6
@@ -31,13 +33,34 @@ TCP_FLAG_ECE = 0x40
 TCP_FLAG_CWR = 0x80
 
 
-@dataclass
+@dataclass(init=False)
 class EthernetHeader:
-    """Standard Ethernet II header fields used for frame classification."""
+    """Standard Ethernet II header fields used for frame classification.
+
+    The constructor accepts either `ether_type` (preferred) or the legacy
+    `ethertype` keyword so older callers and tests remain compatible.
+    """
 
     dst_mac: str
     src_mac: str
     ether_type: int
+
+    def __init__(self, dst_mac: str, src_mac: str, ether_type: int = None, ethertype: int = None):
+        # Allow callers to pass either `ether_type` or legacy `ethertype`.
+        if ether_type is None and ethertype is None:
+            raise TypeError("EthernetHeader requires ether_type or ethertype")
+        self.dst_mac = dst_mac
+        self.src_mac = src_mac
+        self.ether_type = ether_type if ether_type is not None else ethertype
+
+    @property
+    def ethertype(self) -> int:
+        """Backward-compatible attribute name for code that expects `ethertype`.
+
+        Historically some callers used `ethertype` (no underscore). Keep a
+        property so both access patterns work and external tests remain valid.
+        """
+        return self.ether_type
 
 
 @dataclass
@@ -53,9 +76,13 @@ class IPHeader:
     dst_ip: str
 
 
-@dataclass
+@dataclass(init=False)
 class TCPHeader:
-    """TCP header fields used by the threat detectors."""
+    """TCP header fields used by the threat detectors.
+
+    The constructor accepts both `ack` (legacy) and `ack_num` to remain
+    compatible with existing test fixtures and external callers.
+    """
 
     src_port: int
     dst_port: int
@@ -64,6 +91,16 @@ class TCPHeader:
     data_offset: int
     flags: int
     window: int
+
+    def __init__(self, src_port: int, dst_port: int, seq: int, ack: int = 0, ack_num: int = None, data_offset: int = 20, flags: int = 0, window: int = 0):
+        self.src_port = src_port
+        self.dst_port = dst_port
+        self.seq = seq
+        # Accept either `ack` (legacy tests) or `ack_num` (internal naming)
+        self.ack_num = ack if ack_num is None else ack_num
+        self.data_offset = data_offset
+        self.flags = flags
+        self.window = window
 
     def flags_str(self) -> str:
         """Render the active TCP flags as a readable string."""
@@ -80,7 +117,9 @@ class TCPHeader:
         ):
             if self.flags & mask:
                 names.append(name)
-        return ", ".join(names) if names else "NONE"
+        # Tests and external callers expect a compact comma-separated list
+        # (no space after commas) for multi-flag string rendering.
+        return ",".join(names) if names else "NONE"
 
     def flag_str(self) -> str:
         """Backward-compatible alias for flags_str()."""

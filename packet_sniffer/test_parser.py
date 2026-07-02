@@ -42,7 +42,7 @@ def build_udp_header(src_port: int, dst_port: int, payload_len: int) -> bytes:
     return struct.pack("!HHHH", src_port, dst_port, 8 + payload_len, 0)
 
 def test_ethernet_fields():
-    frame = build_ether_frame(b"\x00" * 20)
+    frame = build_eth_frame(b"\x00" * 20)
     info = parser.parse_packet(frame, timestamp=0.0)
     assert info is not None
     assert info.eth.dst_mac == "aa:bb:cc:dd:ee:ff"
