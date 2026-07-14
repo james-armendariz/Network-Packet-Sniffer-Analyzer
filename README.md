@@ -55,14 +55,30 @@ Architecture
  
 **Sentinel Shutdown.** Rather than risk the consumer thread blocking forever on an empty queue, `capture.stop()` pushes a `POISON_PILL` sentinel that the consumer recognizes and exits cleanly on.
  
-## Current detector: stealth-scan signatures
- 
-`StealthScanDetector` is intentionally stateless: it judges each TCP packet purely on its own flag byte, with no tracking across packets. That made it the cheapest possible way to validate the *entire* pipeline end-to-end (capture → parse → analyze → alert) before building anything stateful on top. It currently flags:
- 
+## Detectors
+
+All three detectors below run together in the default CLI pipeline (see `main.py:build_pipeline`).
+
+### `StealthScanDetector`
+
+Intentionally stateless: it judges each TCP packet purely on its own flag byte, with no tracking across packets. That made it the cheapest possible way to validate the *entire* pipeline end-to-end (capture → parse → analyze → alert) before building anything stateful on top. It flags:
+
 - **NULL scan** — no TCP flags set at all
 - **FIN scan** — only the FIN flag set
 - **XMAS scan** — FIN + PSH + URG set together
 - **SYN+FIN** — mutually contradictory flags set simultaneously
+
+### `PortScanDetector`
+
+Stateful: tracks each source IP's distinct `(dst_ip, dst_port)` contacts in a sliding time window using fixed-width time buckets (same strategy as Snort's `sfportscan` and Zeek's scan-detection framework), giving O(1) per-packet updates and bounded memory. Flags:
+
+- **Vertical scan** — one source hits many distinct ports on a single host (default: 15 ports / 60s)
+- **Horizontal scan** — one source hits the same port across many distinct hosts (default: 20 hosts / 60s)
+
+### `TrafficSpikeDetector`
+
+Stateful: maintains a per-source and a global Exponentially Weighted Moving Average (EWMA) of packet rate (the same algorithm TCP uses for RTT estimation, RFC 6298) and alerts when the current rate exceeds the adaptive baseline by a configurable multiplier (default 3×). Self-calibrating to whatever traffic pattern the tool is running against, instead of relying on a manually-tuned static threshold.
+
 ## Running it
  
 Requires Linux (uses `AF_PACKET` raw sockets) and root (raw sockets need
@@ -81,8 +97,10 @@ sudo python3 -m packet_sniffer.main --iface eth0 --duration 30
 Two layers of tests, deliberately:
  
 ```bash
-python3 packet_sniffer/tests/test_parser.py   # synthetic byte buffers, no sockets
-python3 packet_sniffer/tests/test_e2e.py       # real raw-socket capture on loopback
+python3 packet_sniffer/test_parser.py               # synthetic byte buffers, no sockets
+python3 packet_sniffer/test_port_scan_detector.py    # synthetic packets, no sockets
+python3 packet_sniffer/test_traffic_spike_detector.py # synthetic packets, no sockets
+sudo python3 packet_sniffer/test_e2e.py              # real raw-socket capture on loopback
 ```
  
 `test_parser.py` checks the decoder against hand-crafted packets with known

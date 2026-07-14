@@ -10,7 +10,7 @@ import sys
 import os
 from typing import Iterable, List
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from packet_sniffer.detectors import Alert, PortScanDetector
 from packet_sniffer.parser import (

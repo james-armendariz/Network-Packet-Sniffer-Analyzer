@@ -199,12 +199,28 @@ build_tcp(const unsigned char *buf, int transport_offset)
     unsigned char flags     = t[13];
     unsigned int window     = BE16(t, 14);
 
-    return PyObject_CallFunction(
-        TCPHeader_cls, "IIIIiIi",
-        src_port, dst_port,
-        (unsigned int)seq, (unsigned int)ack,
-        data_offset, (unsigned int)flags, window
+    /* TCPHeader.__init__ takes (src_port, dst_port, seq, ack=0, ack_num=None,
+     * data_offset=20, flags=0, window=0) — note ack_num sits between ack and
+     * data_offset. A positional call here previously shifted data_offset into
+     * ack_num, flags into data_offset, and window into flags. Keyword args
+     * sidestep that entirely and stay correct if the signature is reordered. */
+    PyObject *kwargs = Py_BuildValue(
+        "{s:I, s:I, s:I, s:I, s:i, s:I, s:I}",
+        "src_port", src_port,
+        "dst_port", dst_port,
+        "seq", (unsigned int)seq,
+        "ack_num", (unsigned int)ack,
+        "data_offset", data_offset,
+        "flags", (unsigned int)flags,
+        "window", window
     );
+    if (!kwargs) return NULL;
+
+    PyObject *empty_args = PyTuple_New(0);
+    PyObject *result = PyObject_Call(TCPHeader_cls, empty_args, kwargs);
+    Py_DECREF(empty_args);
+    Py_DECREF(kwargs);
+    return result;
 }
 
 /* ------------------------------------------------------------------

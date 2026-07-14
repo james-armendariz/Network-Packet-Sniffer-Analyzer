@@ -6,7 +6,7 @@ import time
 
 from packet_sniffer.pipeline import Pipeline
 from packet_sniffer.engine import AnalysisEngine
-from packet_sniffer.detectors import StealthScanDetector
+from packet_sniffer.detectors import StealthScanDetector, PortScanDetector, TrafficSpikeDetector
 from packet_sniffer.alerts import AlertPublisher, ConsoleAlerter
 
 
@@ -15,7 +15,7 @@ def build_pipeline(iface: str, queue_size: int) -> Pipeline:
     publisher = AlertPublisher()
     publisher.subscribe(ConsoleAlerter())
 
-    detectors = [StealthScanDetector()]
+    detectors = [StealthScanDetector(), PortScanDetector(), TrafficSpikeDetector()]
     engine = AnalysisEngine(detectors=detectors, publisher=publisher)
     return Pipeline(iface=iface, engine=engine, queue_size=queue_size)
 

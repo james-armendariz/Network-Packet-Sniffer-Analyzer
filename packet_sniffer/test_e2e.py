@@ -2,14 +2,14 @@ import sys
 import os
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from packet_sniffer.pipeline import Pipeline
 from packet_sniffer.engine import AnalysisEngine
 from packet_sniffer.detectors import StealthScanDetector
 from packet_sniffer.alerts import AlertPublisher, AlertObserver
 from packet_sniffer.parser import TCP_FLAG_FIN, TCP_FLAG_PSH, TCP_FLAG_URG
-from packet_sniffer.tests.send_test_packet import send_tcp_packet
+from packet_sniffer.send_test_packet import send_tcp_packet
 
 
 class CollectingAlerter(AlertObserver):
